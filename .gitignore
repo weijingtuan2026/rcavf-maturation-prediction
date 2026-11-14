@@ -3,5 +3,5 @@ __pycache__/
 *.pyc
 trained_models/
 *.joblib
-*_备份_*.xlsx
+*_backup_*.xlsx
 
