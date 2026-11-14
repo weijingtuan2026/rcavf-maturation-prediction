@@ -1,19 +1,27 @@
-# RCAVF成熟预测模型
+# RCAVF Maturation Prediction Models
 
-本项目依据《Machine Learning with Segmental Duplex Ultrasound Predicts Ultrasound-Defined Radiocephalic Fistula Maturation Before Surgery and at the 2-Week Landmark》实现三个二分类算法：弹性网逻辑回归、XGBoost和CatBoost。每个算法均训练两个时间点模型：
+This repository implements three binary classifiers described in *Machine Learning with Segmental Duplex Ultrasound Predicts Ultrasound-Defined Radiocephalic Fistula Maturation Before Surgery and at the 2-Week Landmark*:
 
-- 术前 Segmental 模型：10项术前指标。
-- 术后2周 Full 模型：上述10项加5项术后2周动态指标。
+- Elastic-net logistic regression
+- XGBoost
+- CatBoost
 
-程序将结果追加到待预测Excel工作表右侧。每个算法追加4列：术前成熟概率、术前判断、术后2周成熟概率、术后2周判断。直接回写默认开启，并在同一文件夹生成带时间戳的备份。三个程序依次对同一个Excel运行后，文件中会保留12个模型结果列。
+Each algorithm trains two models:
 
-## 重要限制
+- **Preoperative Segmental model:** 10 preoperative predictors.
+- **2-week Full model:** the same 10 predictors plus 5 postoperative dynamic predictors.
 
-论文和补充材料只给出了汇总统计、超参数和测试集性能，没有提供367例患者级训练数据或已训练权重。因此，本项目不能从文档恢复原论文模型。运行时必须选择一份带6周结局的患者级训练Excel；程序会使用论文固定超参数训练模型，再预测另一份Excel。当前结果只能用于研究验证，不能在外部验证和临床审批前替代医生判断。
+Each program appends four columns to the selected prediction worksheet: preoperative maturation probability, preoperative prediction, 2-week maturation probability, and 2-week prediction. Direct writing is enabled by default and creates a timestamped backup before changing the workbook. Running all three programs on the same workbook produces 12 result columns.
 
-## 安装
+## Important limitation
 
-建议使用Python 3.10至3.12：
+The manuscript and supplementary material provide summary statistics, hyperparameters, and test-set performance, but not the patient-level data or fitted model objects for the 367 participants. The original fitted models therefore cannot be reconstructed from the documents alone.
+
+Each program requires a patient-level training workbook containing the 6-week outcome. It trains models using the fixed manuscript hyperparameters and then predicts a separate workbook. The software is intended for research validation and must not replace clinical judgement before external validation and appropriate regulatory review.
+
+## Installation
+
+Python 3.10 through 3.12 is recommended.
 
 ```bash
 python3 -m venv .venv
@@ -21,21 +29,21 @@ source .venv/bin/activate
 python3 -m pip install -r requirements.txt
 ```
 
-macOS上的XGBoost还需要OpenMP运行库：
+XGBoost on macOS also requires the OpenMP runtime:
 
 ```bash
 brew install libomp
 ```
 
-Windows激活虚拟环境：
+Activate the virtual environment on Windows with:
 
 ```text
 .venv\Scripts\activate
 ```
 
-## 窗口方式
+## Graphical interface
 
-在项目文件夹内分别运行：
+Run one of the following commands from the project directory:
 
 ```bash
 python lr_model.py
@@ -43,70 +51,81 @@ python xgboost_model.py
 python catboost_model.py
 ```
 
-窗口中选择：
+In the application window, select:
 
-1. 带6周结局的训练Excel和工作表。
-2. 待预测Excel和工作表。
-3. 训练结局列名。
-4. 是否直接追加到待预测Excel。
+1. The training Excel workbook and worksheet containing the 6-week outcome.
+2. The Excel workbook and worksheet containing patients to predict.
+3. The outcome column in the training data.
+4. Whether results should be appended directly to the selected prediction workbook.
 
-结局列推荐使用 `maturation_failure`，其中1表示6周未成熟/失败、0表示成熟。若列名使用 `是否成熟`，则1表示成熟、0表示未成熟。也支持“成熟/未成熟”文本。
+The recommended outcome column is `maturation_failure`, with 1 indicating failure of 6-week maturation and 0 indicating maturation. A column named `matured` may also be used, with 1 indicating maturation and 0 indicating failure. Text labels such as `Mature`, `Not mature`, `Matured`, `Failure`, `Yes`, and `No` are supported.
 
-## 命令行方式
+## Command-line interface
 
 ```bash
 python catboost_model.py \
-  --train 历史训练数据.xlsx \
-  --predict 5名患者.xlsx \
+  --train training_data.xlsx \
+  --predict patients_to_predict.xlsx \
   --train-sheet Sheet1 \
   --predict-sheet Sheet1 \
   --outcome maturation_failure
 ```
 
-加入 `--no-direct-write --output 5名患者_预测结果.xlsx` 可保留原预测Excel不变。
+Use `--no-direct-write --output prediction_results.xlsx` to preserve the selected prediction workbook and save a separate result file.
 
-## 必需字段
+## Required predictors
 
-程序支持下列英文标准列名，也支持常用中文别名。二分类指标可用0/1、是/否或有/无。连续指标应为数值，不要在单元格中附加单位。
+Binary variables may use 0/1, yes/no, or present/absent. Continuous variables must contain numeric values without units in the cells.
 
-| 时间点 | 英文标准列名 | 中文含义 |
+| Time point | Column name | Definition |
 |---|---|---|
-| 术前 | `age` | 年龄（岁） |
-| 术前 | `diabetes` | 糖尿病（0/1） |
-| 术前 | `albumin` | 白蛋白（g/L） |
-| 术前 | `radial_artery_diameter` | 桡动脉直径（mm） |
-| 术前 | `radial_artery_ri` | 术前桡动脉RI |
-| 术前 | `arterial_wall_calcification` | 动脉壁钙化（0/1） |
-| 术前 | `cv_diameter_distal` | 远端头静脉直径（mm） |
-| 术前 | `min_cv_diameter` | 三段头静脉最小直径（mm） |
-| 术前 | `segmental_diameter_variability` | 三段直径标准差/均值 |
-| 术前 | `mean_segmental_depth` | 三段头静脉平均深度（mm） |
-| 2周 | `access_flow_2w` | 通路流量（mL/min） |
-| 2周 | `mean_diameter_change_2w` | 三段平均直径变化（2周减术前，mm） |
-| 2周 | `mean_depth_change_2w` | 三段平均深度变化（2周减术前，mm） |
-| 2周 | `focal_stenosis_2w` | 局灶性狭窄（0/1） |
-| 2周 | `radial_artery_ri_change_2w` | 桡动脉RI变化（2周减术前） |
+| Preoperative | `age` | Age, years |
+| Preoperative | `diabetes` | Diabetes mellitus, 0/1 |
+| Preoperative | `albumin` | Serum albumin, g/L |
+| Preoperative | `radial_artery_diameter` | Radial artery diameter, mm |
+| Preoperative | `radial_artery_ri` | Preoperative radial artery resistance index |
+| Preoperative | `arterial_wall_calcification` | Arterial wall calcification, 0/1 |
+| Preoperative | `cv_diameter_distal` | Distal cephalic vein diameter, mm |
+| Preoperative | `min_cv_diameter` | Minimum of the three cephalic vein diameters, mm |
+| Preoperative | `segmental_diameter_variability` | Standard deviation divided by mean of the three diameters |
+| Preoperative | `mean_segmental_depth` | Mean of the three cephalic vein depths, mm |
+| 2 weeks | `access_flow_2w` | Brachial artery access flow, mL/min |
+| 2 weeks | `mean_diameter_change_2w` | Mean paired diameter change, 2 weeks minus preoperative, mm |
+| 2 weeks | `mean_depth_change_2w` | Mean paired depth change, 2 weeks minus preoperative, mm |
+| 2 weeks | `focal_stenosis_2w` | Focal stenosis, 0/1 |
+| 2 weeks | `radial_artery_ri_change_2w` | Radial artery RI change, 2 weeks minus preoperative |
 
-三个术前复合字段可以不直接提供。若同时提供远端、中段、近端的直径和深度，程序会自动计算：
+The three preoperative composite predictors do not need to be supplied directly when all three segmental diameters and depths are available. The program can derive them from:
 
-- `cv_diameter_mid`、`cv_diameter_proximal`
-- `cv_depth_distal`、`cv_depth_mid`、`cv_depth_proximal`
+- `cv_diameter_distal`, `cv_diameter_mid`, and `cv_diameter_proximal`
+- `cv_depth_distal`, `cv_depth_mid`, and `cv_depth_proximal`
 
-三个2周变化字段也可由配对原始值自动计算。可使用：
+The postoperative change predictors can also be derived from matched measurements when these columns are available:
 
-- `vein_diameter_distal_2w`、`vein_diameter_mid_2w`、`vein_diameter_proximal_2w`
-- `vein_depth_distal_2w`、`vein_depth_mid_2w`、`vein_depth_proximal_2w`
+- `vein_diameter_distal_2w`, `vein_diameter_mid_2w`, and `vein_diameter_proximal_2w`
+- `vein_depth_distal_2w`, `vein_depth_mid_2w`, and `vein_depth_proximal_2w`
 - `radial_artery_ri_2w`
 
-## 模型参数与判断阈值
+## Excel output
 
-模型使用补充材料Table S3的固定参数。判断阈值来自正文Table 5，并针对论文建模事件“未成熟”应用：
+For example, the CatBoost program appends:
 
-| 算法 | 术前未成熟阈值 | 术后2周未成熟阈值 |
+- `CatBoost_preoperative_maturation_probability`
+- `CatBoost_preoperative_prediction`
+- `CatBoost_2week_maturation_probability`
+- `CatBoost_2week_prediction`
+
+The probability columns contain the estimated probability of 6-week maturation. Prediction columns contain `Mature` or `Not mature`.
+
+## Model parameters and thresholds
+
+The estimators use the fixed hyperparameters reported in Supplementary Table S3. Classification thresholds are taken from Table 5 and apply to the modeled event of maturation failure.
+
+| Algorithm | Preoperative failure threshold | 2-week failure threshold |
 |---|---:|---:|
-| LR | 0.298 | 0.339 |
+| Logistic regression | 0.298 | 0.339 |
 | XGBoost | 0.221 | 0.187 |
 | CatBoost | 0.254 | 0.412 |
 
-Excel中的成熟概率为 `1 - 未成熟概率`。当未成熟概率低于相应阈值时输出“成熟”，否则输出“未成熟”。
+The displayed maturation probability equals `1 - failure probability`. A patient is classified as `Mature` when the estimated failure probability is below the corresponding threshold; otherwise the prediction is `Not mature`.
 
