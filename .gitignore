@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+trained_models/
+*.joblib
+*_备份_*.xlsx
+
